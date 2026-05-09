@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: finrag-vllm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm
+  template:
+    metadata:
+      labels:
+        app: vllm
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-accelerator: nvidia-l4
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai:latest
+        command: ["python3", "-m", "vllm.entrypoints.openai.api_server"]
+        args: ["--model", "gs://finrag-artifacts-bucket/merged-llama3", "--port", "8000"]
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm-service
+spec:
+  selector:
+    app: vllm
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000

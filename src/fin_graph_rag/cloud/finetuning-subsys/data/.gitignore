@@ -1,0 +1,9 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+
+# GitHub LFS rejects files above 2 GB on this account. The full file is
+# committed as chunk_ranking_kaggle_dev.jsonl.part-* instead.
+chunk_ranking_kaggle_dev.jsonl
+
+chunk_ranking_kaggle_dev.jsonl.part-*
