@@ -1,0 +1,17 @@
+# Use a lightweight Python base image
+FROM python:3.10-slim
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# Copy your requirements first (for Docker layer caching)
+COPY requirements.txt .
+
+# Install dependencies (e.g., neo4j, google-cloud-storage, langchain, pdfplumber)
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy your actual Python ingestion script
+COPY ingest.py .
+
+# Run the script when the container launches
+CMD ["python", "ingest.py"]

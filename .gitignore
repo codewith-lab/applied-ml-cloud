@@ -37,3 +37,6 @@ src/fin_dnn_finetuning/data/**/*.joblib
 src/fin_dnn_finetuning/data/*.jsonl
 src/fin_dnn_finetuning/data/*.jsonl.part-*
 src/fin_dnn_finetuning/data/outputs/
+src/fin_graph_rag/cloud/finetuning-subsys/data/chunk_ranking_kaggle_dev.jsonl.part-00
+src/fin_graph_rag/cloud/finetuning-subsys/data/chunk_ranking_kaggle_dev.jsonl.part-01
+src/fin_graph_rag/cloud/finetuning-subsys/data/chunk_ranking_kaggle_dev.jsonl.part-02
