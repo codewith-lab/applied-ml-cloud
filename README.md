@@ -1,24 +1,26 @@
-# FinRAG 
+# FinRAG
 
-Local GraphRAG pipeline for SEC-style financial filing QA. The project uses:
+Local GraphRAG pipeline for SEC-style financial filing QA, with companion LoRA reranking and GKE deployment assets. The project uses:
 
 - **SQLite** as the fast local retrieval graph store.
 - **BM25 + FAISS dense retrieval** over the same parsed `Block.text` corpus.
 - **Neo4j mirror** for graph visualization.
 - **CE / LoRA reranking** for the accuracy-vs-latency comparison.
 - **Document-scoped FinanceBench evaluation**, using each row's `doc_link`, `company`, `doc_period`, and `doc_type` to restrict retrieval to the correct filing.
+- **Standalone LoRA / ranking experiments** under `src/fin_graph_rag/lora`.
+- **GKE cloud deployment and fine-tuning runbooks** under `src/fin_graph_rag/cloud`.
 
 ---
 
 ## 0. Project layout
 
 ```text
-fin_graph_rag/
+applied-ml-cloud/
   README.md
   pyproject.toml
   configs/default.yaml
   data/pdfs/                         # FinanceBench PDFs go here
-  adaptor/                           # your LoRA adapter; adapter/ also works
+  adaptor/                           # local LoRA adapter; adapter/ also works
   artifacts/
     graph.sqlite                     # built by ingest
     index/                           # BM25 + FAISS indexes
@@ -26,14 +28,21 @@ fin_graph_rag/
   scripts/
     run_question_limit_sweep.sh
     run_slide_model_sweep.sh
+    run_local_graph_rag.sh
   src/fin_graph_rag/
     ingest/                          # PDF parse, SQLite graph, Neo4j sync
     indexing/                        # BM25 + dense indexes
     retrieval/                       # dense/BM25/graph retrieval and merge
-    rerank/                          # CE and LoRA rerankers
+    rerank/                          # CE and runtime LoRA rerankers
     evaluation/                      # FinanceBench, plots, LLM-as-judge
     prompts/claim_extraction.txt     # only used by --use-llm-claims
+    lora/                            # Open WebUI demo + standalone reranker work
+      demo/                          # FinRAG Open WebUI function and screenshots
+      reranker/                      # LoRA/ranker scripts, data, cached outputs
+    cloud/                           # GKE, vLLM, Neo4j, Streamlit, training runbooks
 ```
+
+The top-level CLI is the local retrieval/evaluation path. The `lora/` and `cloud/` folders are companion assets for the demo, standalone fine-tuning/ranking experiments, and cloud deployment story.
 
 ---
 
@@ -43,7 +52,7 @@ Use a clean virtual environment. On macOS, avoid mixing Conda `base` with pip-in
 
 ```bash
 # From the project root.
-cd fin_graph_rag
+cd applied-ml-cloud
 
 # Optional but recommended if your prompt shows both (.venv) and (base).
 conda deactivate 2>/dev/null || true
@@ -63,7 +72,7 @@ which fin-graph-rag
 Expected CLI path:
 
 ```text
-.../fin_graph_rag/.venv/bin/fin-graph-rag
+.../applied-ml-cloud/.venv/bin/fin-graph-rag
 ```
 
 If the CLI points to `/opt/anaconda3/bin/fin-graph-rag`, reinstall inside the active venv and clear the shell cache:
@@ -71,6 +80,12 @@ If the CLI points to `/opt/anaconda3/bin/fin-graph-rag`, reinstall inside the ac
 ```bash
 python -m pip install -e '.[lora,neo4j]'
 hash -r
+```
+
+Standalone scripts in `src/fin_graph_rag/lora/reranker` have their own heavier experiment dependencies:
+
+```bash
+python -m pip install -r src/fin_graph_rag/lora/reranker/requirements-lora.txt
 ```
 
 ---
@@ -107,10 +122,10 @@ It creates hints from `company`, `ticker`, `doc_period`, `doc_type`, and the URL
 
 ### 2.2 Put the LoRA adapter in `./adaptor`
 
-The project assumes your fine-tuned reranker adapter is local:
+The runtime retrieval pipeline assumes your fine-tuned reranker adapter is local:
 
 ```text
-fin_graph_rag/adaptor/
+applied-ml-cloud/adaptor/
   adapter_config.json
   adapter_model.safetensors
   tokenizer.json
@@ -139,11 +154,12 @@ print("first keys:", keys[:10])
 PY
 ```
 
-A valid reranker adapter should include a score/classifier head, for example:
+A valid sequence-classification reranker adapter should include a score/classifier head, for example:
 
 ```text
 base_model.model.score.weight
 ```
+
 ---
 
 ## 3. Build the local retrieval graph
@@ -341,9 +357,9 @@ Meaning:
 
 ---
 
-## 7. Evaluation 
+## 7. Evaluation
 
-These are the five variants used for the slide-style accuracy/latency plot. 
+These are the five variants used for the slide-style accuracy/latency plot.
 
 | Slide label | CLI variant | Description |
 |---|---|---|
@@ -382,10 +398,10 @@ for v in dense dense_bm25 dense_bm25_ce dense_bm25_lora dense_graph; do
     --out-dir "artifacts/results/e2e_${v}_50q" \
     --use-eval-cache \
     --eval-cache-dir artifacts/results/cache
- done
+done
 ```
 
-### 7.1 Run full 150-question evaluation
+### 7.2 Run full 150-question evaluation
 
 The cache reuses rows already computed for 50/100-question runs.
 
@@ -408,11 +424,10 @@ for v in dense dense_bm25 dense_bm25_ce dense_bm25_lora dense_graph; do
     --out-dir "artifacts/results/e2e_${v}_150q" \
     --use-eval-cache \
     --eval-cache-dir artifacts/results/cache
- done
+done
 ```
 
-
-### 7.2 Plot accuracy vs latency
+### 7.3 Plot accuracy vs latency
 
 150-question plot:
 
@@ -428,7 +443,7 @@ fin-graph-rag plot-latency \
 
 `--result-dirs` must be repeated once per directory.
 
-### 7.3. Eval cache
+### 7.4 Eval cache
 
 Cache location:
 
@@ -471,7 +486,7 @@ export ANSWER_MODEL="gpt-4o-mini"
 export JUDGE_MODEL="gpt-4o-mini"
 ```
 
-Run the 2 persona × 2 task × 2 question judge setup:
+Run the 2 persona x 2 task x 2 question judge setup:
 
 ```bash
 fin-graph-rag judge-personas \
@@ -492,5 +507,220 @@ artifacts/results/persona_judge_2x2/preference_matrix.csv    # grouped 4-row sum
 artifacts/results/persona_judge_2x2/summary.json
 ```
 
+---
 
+## 9. LoRA demo and standalone reranking assets
 
+The `src/fin_graph_rag/lora` folder adds material that is separate from the main `fin-graph-rag` CLI:
+
+```text
+src/fin_graph_rag/lora/
+  README.md                          # Open WebUI FinRAG demo walkthrough
+  README_reranker.md                 # standalone reranker notes
+  demo/
+    finrag_demo.py                   # Open WebUI Function / Pipe named finrag
+    granite_autogen_rag.py           # Granite AG2 baseline/reference
+    image_researcher_granite_crewai.py
+    lorademo*.png                    # demo screenshots
+  reranker/
+    lora_reranker.py                 # Llama sequence-classification LoRA trainer
+    chunk_ranker.py                  # supervised chunk ranker
+    chunk_best_ensemble.py           # cached ensemble materializer
+    requirements-lora.txt
+    outputs/                         # cached metrics/rankings/models
+```
+
+### 9.1 Open WebUI demo
+
+The demo function is in:
+
+```text
+src/fin_graph_rag/lora/demo/finrag_demo.py
+```
+
+It exposes the selectable model ID `finrag` in Open WebUI and uses:
+
+- built-in project context for explaining the FinRAG method, metrics, deployment, and future work;
+- Open WebUI Knowledge search for user-uploaded SEC filings or graph-export chunks;
+- Open WebUI web search for external references.
+
+See the full demo setup in:
+
+```text
+src/fin_graph_rag/lora/README.md
+```
+
+### 9.2 Standalone LoRA reranker training
+
+Install the standalone experiment dependencies:
+
+```bash
+cd src/fin_graph_rag/lora/reranker
+python -m pip install -r requirements-lora.txt
+```
+
+Quick smoke run:
+
+```bash
+python lora_reranker.py \
+  --epochs 1 \
+  --doc-query-limit 30 \
+  --chunk-query-limit -1 \
+  --doc-val-queries 10 \
+  --chunk-val-queries 0 \
+  --max-train-pairs 120 \
+  --batch-size 1 \
+  --eval-batch-size 1 \
+  --output-dir outputs/llama3_smoke
+```
+
+The default base model is:
+
+```text
+unsloth/Llama-3.2-1B-Instruct
+```
+
+### 9.3 Cached chunk-ranking ensemble
+
+The best cached ensemble is materialized with:
+
+```bash
+cd src/fin_graph_rag/lora/reranker
+python chunk_best_ensemble.py
+```
+
+It writes:
+
+```text
+outputs/chunk_ltr_5000/metrics_best_ensemble.json
+outputs/chunk_ltr_5000/validation_rankings_best_ensemble.csv
+outputs/chunk_ltr_5000/validation_rankings_best_ensemble.jsonl
+outputs/chunk_ltr_5000/chunk_eval_rankings_best_ensemble.csv
+outputs/chunk_ltr_5000/chunk_eval_rankings_best_ensemble.jsonl
+```
+
+Checked cached metrics:
+
+| Metric | Table 3 target | Best ensemble | Delta |
+|---|---:|---:|---:|
+| nDCG@5 | 0.371 | 0.431975 | +0.060975 |
+| MAP@5 | 0.274 | 0.390767 | +0.116767 |
+| MRR@5 | 0.587 | 0.639567 | +0.052567 |
+
+This ensemble is a supervised ranking artifact, not the same thing as the runtime LoRA adapter used by `fin-graph-rag retrieve --variant *_lora`.
+
+---
+
+## 10. Cloud and GKE assets
+
+The `src/fin_graph_rag/cloud` folder documents and stages the cloud version of the project: Neo4j, vLLM, a Streamlit/orchestrator frontend, GCS-backed artifacts, and GKE Jobs for ingestion and fine-tuning.
+
+```text
+src/fin_graph_rag/cloud/
+  README.md                          # GKE GraphRAG deployment walkthrough
+  cluster-provisioning/              # screenshots for cluster/GPU node setup
+  infra-stateful-services/           # screenshots for Cloud SQL, GSA/KSA, Neo4j
+  knowledge-graph-subsys/
+    injest-job.yaml                  # ingestion Job manifest
+  vllm-serving-subsys/
+    vllm-inference-server.yaml       # vLLM OpenAI-compatible server
+    orchestrator-deployment.yaml     # app/API deployment
+    orchestrator-service.yaml        # ingress/service exposure
+    Dockerfile.txt
+  finetuning-subsys/
+    data/                            # local copy of LoRA/ranking experiment data
+    cloud/
+      RUNBOOK.md                     # GKE Autopilot fine-tuning runbook
+      Dockerfile
+      cloudbuild.yaml
+      k8s/
+        serviceaccount.yaml
+        train-job-l4.yaml
+        train-job-l4-ondemand.yaml
+        train-job-t4.yaml
+        merge-job.yaml
+        merge-job-colab.yaml
+        ensemble-job.yaml
+      merge_lora_offline.py
+    docs/cloud/                      # architecture images and evidence logs
+  demo/                              # cloud demo screenshots
+```
+
+### 10.1 GKE GraphRAG serving path
+
+Start with:
+
+```text
+src/fin_graph_rag/cloud/README.md
+```
+
+That walkthrough covers:
+
+- Neo4j as the cloud knowledge graph;
+- vLLM as an OpenAI-compatible inference server;
+- Streamlit as the user-facing RAG assistant;
+- GCS as the artifact/data bucket;
+- Kubernetes ConfigMaps and Jobs for lightweight ingestion.
+
+Important: replace placeholder project IDs, bucket names, image names, and passwords before running cloud manifests. The checked-in YAML and README values are class/demo defaults, not production secrets.
+
+### 10.2 GKE fine-tuning path
+
+The fine-tuning runbook is:
+
+```text
+src/fin_graph_rag/cloud/finetuning-subsys/cloud/RUNBOOK.md
+```
+
+It covers:
+
+- creating project variables and GCS buckets;
+- enabling GCP APIs;
+- building the trainer image with Cloud Build;
+- creating a GKE Autopilot cluster;
+- configuring Workload Identity;
+- running L4 or T4 LoRA training Jobs;
+- running a CPU merge Job to produce a merged model artifact;
+- tearing the cluster down to stop billing.
+
+Primary manifests:
+
+```bash
+kubectl apply -f src/fin_graph_rag/cloud/finetuning-subsys/cloud/k8s/serviceaccount.yaml
+kubectl apply -f src/fin_graph_rag/cloud/finetuning-subsys/cloud/k8s/train-job-l4.yaml
+kubectl apply -f src/fin_graph_rag/cloud/finetuning-subsys/cloud/k8s/train-job-t4.yaml
+kubectl apply -f src/fin_graph_rag/cloud/finetuning-subsys/cloud/k8s/merge-job.yaml
+```
+
+The cloud evidence folder includes the same ensemble headline metrics as the local cached run:
+
+```text
+src/fin_graph_rag/cloud/finetuning-subsys/docs/cloud/cloud_evidence/metrics_best_ensemble.cloud.json
+```
+
+It also includes a Colab LoRA training metrics file:
+
+```text
+src/fin_graph_rag/cloud/finetuning-subsys/docs/cloud/cloud_evidence/lora_train_metrics.colab.json
+```
+
+The runbook notes that the cloud LoRA adapter metrics and the cached supervised ensemble metrics answer different questions. Use the LoRA adapter when testing sequence-classification reranking in the local CLI; use the ensemble metrics when reproducing the reported chunk-ranking table.
+
+---
+
+## 11. Developer smoke checks
+
+If the package is installed into the active environment:
+
+```bash
+fin-graph-rag --help
+python -m pytest
+```
+
+If you only want to run tests from a source checkout without installing the package:
+
+```bash
+PYTHONPATH=src python -m pytest
+```
+
+The lightweight unit tests cover document scoping, retrieval merge behavior, and stable text utilities.
