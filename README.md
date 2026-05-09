@@ -8,7 +8,7 @@ Local GraphRAG pipeline for SEC-style financial filing QA, with companion LoRA r
 - **CE / LoRA reranking** for the accuracy-vs-latency comparison.
 - **Document-scoped FinanceBench evaluation**, using each row's `doc_link`, `company`, `doc_period`, and `doc_type` to restrict retrieval to the correct filing.
 - **Standalone LoRA / ranking experiments** under `src/fin_graph_rag/lora`.
-- **GKE cloud deployment and fine-tuning runbooks** under `src/fin_graph_rag/cloud`.
+- **GKE cloud deployment experimentss** under `src/fin_graph_rag/cloud`.
 
 ---
 
@@ -39,7 +39,7 @@ applied-ml-cloud/
     lora/                            # Open WebUI demo + standalone reranker work
       demo/                          # FinRAG Open WebUI function and screenshots
       reranker/                      # LoRA/ranker scripts, data, cached outputs
-    cloud/                           # GKE, vLLM, Neo4j, Streamlit, training runbooks
+    cloud/                           # GKE, vLLM, Neo4j, Streamlit
 ```
 
 The top-level CLI is the local retrieval/evaluation path. The `lora/` and `cloud/` folders are companion assets for the demo, standalone fine-tuning/ranking experiments, and cloud deployment story.
@@ -600,7 +600,6 @@ src/fin_graph_rag/cloud/
   finetuning-subsys/
     data/                            # local copy of LoRA/ranking experiment data
     cloud/
-      RUNBOOK.md                     # GKE Autopilot fine-tuning runbook
       Dockerfile
       cloudbuild.yaml
       k8s/
@@ -636,13 +635,7 @@ Important: replace placeholder project IDs, bucket names, image names, and passw
 
 ### 10.2 GKE fine-tuning path
 
-The fine-tuning runbook is:
-
-```text
-src/fin_graph_rag/cloud/finetuning-subsys/cloud/RUNBOOK.md
-```
-
-It covers:
+The fine-tuning experiment covers:
 
 - creating project variables and GCS buckets;
 - enabling GCP APIs;
@@ -667,15 +660,6 @@ The cloud evidence folder includes the same ensemble headline metrics as the loc
 ```text
 src/fin_graph_rag/cloud/finetuning-subsys/docs/cloud/cloud_evidence/metrics_best_ensemble.cloud.json
 ```
-
-It also includes a Colab LoRA training metrics file:
-
-```text
-src/fin_graph_rag/cloud/finetuning-subsys/docs/cloud/cloud_evidence/lora_train_metrics.colab.json
-```
-
-The runbook notes that the cloud LoRA adapter metrics and the cached supervised ensemble metrics answer different questions. Use the LoRA adapter when testing sequence-classification reranking in the local CLI; use the ensemble metrics when reproducing the reported chunk-ranking table.
-
 ---
 
 ## 11. Developer smoke checks
