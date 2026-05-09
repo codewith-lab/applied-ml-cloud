@@ -608,7 +608,6 @@ src/fin_graph_rag/cloud/
         train-job-l4-ondemand.yaml
         train-job-t4.yaml
         merge-job.yaml
-        merge-job-colab.yaml
         ensemble-job.yaml
       merge_lora_offline.py
     docs/cloud/                      # architecture images and evidence logs
