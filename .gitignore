@@ -26,3 +26,14 @@ adapter/
 .DS_Store
 .vscode/
 .idea/
+
+# Large/generated FinRAG data and model outputs
+src/fin_dnn_finetuning/data/outputs/
+src/fin_dnn_finetuning/data/*.jsonl
+src/fin_dnn_finetuning/data/*.jsonl.part-*
+src/fin_dnn_finetuning/data/**/*.joblib
+
+# Generated FinRAG data / model artifacts
+src/fin_dnn_finetuning/data/*.jsonl
+src/fin_dnn_finetuning/data/*.jsonl.part-*
+src/fin_dnn_finetuning/data/outputs/
