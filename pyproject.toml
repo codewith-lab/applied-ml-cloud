@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fin-graph-rag"
+version = "0.1.0"
+description = "Local GraphRAG pipeline for finance filings with hybrid retrieval, graph expansion, LoRA reranking hook, and evaluation."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "pymupdf>=1.24.0",
+  "pydantic>=2.7.0",
+  "pyyaml>=6.0.1",
+  "typer>=0.12.3",
+  "rich>=13.7.1",
+  "tqdm>=4.66.4",
+  "numpy>=1.26.4",
+  "pandas>=2.2.2",
+  "rank-bm25>=0.2.2",
+  "sentence-transformers>=3.0.1",
+  "faiss-cpu>=1.8.0",
+  "networkx>=3.3",
+  "datasets>=2.20.0",
+  "matplotlib>=3.8.4",
+  "openai>=1.40.0",
+  "tenacity>=8.3.0",
+  "rapidfuzz>=3.9.3",
+  "scikit-learn>=1.5.1"
+]
+
+[project.optional-dependencies]
+lora = ["torch>=2.2.0", "transformers>=4.43.0", "peft>=0.12.0", "accelerate>=0.33.0"]
+neo4j = ["neo4j>=5.24.0"]
+dev = ["pytest>=8.2.0", "ruff>=0.5.0"]
+
+[project.scripts]
+fin-graph-rag = "fin_graph_rag.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+fin_graph_rag = ["prompts/*.txt"]
+
+[tool.ruff]
+line-length = 100

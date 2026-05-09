@@ -1,0 +1,30 @@
+Extract finance causal claims from the filing block below. Focus only on risk -> P&L driver links.
+
+Return strict JSON only with this schema:
+{{
+  "claims": [
+    {{
+      "claim_text": "short source-grounded claim",
+      "risk_entity": "normalized risk entity, e.g. foreign currency, supply chain, inflation",
+      "pnl_driver": "normalized P&L driver, e.g. revenue, gross margin, COGS, operating income",
+      "direction": "increases|decreases|impacts|unknown",
+      "confidence": 0.0
+    }}
+  ]
+}}
+
+Rules:
+- Extract only claims supported by the block text.
+- Prefer explicit causal language such as due to, driven by, resulting from, affected by, pressure, unfavorable, higher/lower.
+- If the block is a financial table, extract causal links only when row labels or surrounding text imply a risk-to-P&L relation.
+- If there is no causal risk-to-P&L relation, return {{"claims":[]}}.
+- Do not include markdown fences or explanation.
+
+Block metadata:
+file_name: {file_name}
+page_num: {page_num}
+block_type: {block_type}
+section_title: {section_title}
+
+Block text:
+{block_text}
