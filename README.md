@@ -579,36 +579,6 @@ The default base model is:
 ```text
 unsloth/Llama-3.2-1B-Instruct
 ```
-
-### 9.3 Cached chunk-ranking ensemble
-
-The best cached ensemble is materialized with:
-
-```bash
-cd src/fin_graph_rag/lora/reranker
-python chunk_best_ensemble.py
-```
-
-It writes:
-
-```text
-outputs/chunk_ltr_5000/metrics_best_ensemble.json
-outputs/chunk_ltr_5000/validation_rankings_best_ensemble.csv
-outputs/chunk_ltr_5000/validation_rankings_best_ensemble.jsonl
-outputs/chunk_ltr_5000/chunk_eval_rankings_best_ensemble.csv
-outputs/chunk_ltr_5000/chunk_eval_rankings_best_ensemble.jsonl
-```
-
-Checked cached metrics:
-
-| Metric | Table 3 target | Best ensemble | Delta |
-|---|---:|---:|---:|
-| nDCG@5 | 0.371 | 0.431975 | +0.060975 |
-| MAP@5 | 0.274 | 0.390767 | +0.116767 |
-| MRR@5 | 0.587 | 0.639567 | +0.052567 |
-
-This ensemble is a supervised ranking artifact, not the same thing as the runtime LoRA adapter used by `fin-graph-rag retrieve --variant *_lora`.
-
 ---
 
 ## 10. Cloud and GKE assets
