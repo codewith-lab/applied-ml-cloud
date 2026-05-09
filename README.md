@@ -8,7 +8,7 @@ Local GraphRAG pipeline for SEC-style financial filing QA, with companion LoRA r
 - **CE / LoRA reranking** for the accuracy-vs-latency comparison.
 - **Document-scoped FinanceBench evaluation**, using each row's `doc_link`, `company`, `doc_period`, and `doc_type` to restrict retrieval to the correct filing.
 - **Standalone LoRA / ranking experiments** under `src/fin_graph_rag/lora`.
-- **GKE cloud deployment experimentss** under `src/fin_graph_rag/cloud`.
+- **GKE cloud deployment experiments** under `src/fin_graph_rag/cloud`.
 
 ---
 
